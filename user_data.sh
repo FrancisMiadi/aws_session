@@ -1,56 +1,16 @@
 #!/bin/bash
-set -e  # Exit on any error — helps catch failures early
+set -e
 
 apt-get update -y
-apt-get install python3-pip python3-venv -y
+apt-get install python3-pip python3-venv git -y  # 👈 add git
 
 mkdir -p /home/ubuntu/app
 cd /home/ubuntu/app
 
-# Write app.py inline — no SCP needed
-cat > app.py << 'EOF'
-from flask import Flask, request, jsonify
-import joblib
-from flask_cors import CORS
+# Clone your repo (all files including pkl come with it)
+git clone https://github.com/FrancisMiadi/aws_session.git .  # 👈 the dot clones into current dir
 
-app = Flask(__name__)
-CORS(app)  # IMPORTANT for S3 frontend
+pip install flask flask-cors joblib scikit-learn==1.6.0 nltk pandas
 
-model = joblib.load("model.pkl")
-vectorizer = joblib.load("vectorizer.pkl")
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json()
-    text = data["text"]
-
-    X = vectorizer.transform([text])
-    pred = model.predict(X)[0]
-
-    return jsonify({
-        "prediction": str(pred)
-    })
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-EOF
-
-# Write requirements.txt inline
-cat > requirements.txt << 'EOF'
-flask
-flask-cors
-joblib
-scikit-learn
-nltk
-pandas
-EOF
-
-# Use a venv to avoid Ubuntu PEP 668 restrictions
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Run the app as ubuntu user, not root
 chown -R ubuntu:ubuntu /home/ubuntu/app
-
 nohup venv/bin/python app.py > app.log 2>&1 &
